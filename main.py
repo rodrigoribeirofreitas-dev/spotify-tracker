@@ -3,7 +3,8 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 
-# 1. Configuração (Mantenha seus IDs aqui)
+# --- CONFIGURAÇÃO ---
+# Mantenha os códigos entre aspas para evitar erros de comunicação com o GitHub
 CLIENT_ID = 'ea5f9e4831d2429d90564b630c921666'
 CLIENT_SECRET = '27c460c3d5d24f0fb5b342e70a2339c9'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
@@ -12,56 +13,57 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # Criamos o gerenciador de autenticação de forma mais robusta
-        client_credentials_manager = SpotifyClientCredentials(
-            client_id=CLIENT_ID, 
-            client_secret=CLIENT_SECRET
-        )
-        
-        # O segredo está aqui: forçar o sp a usar o token explicitamente
-        sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+        # Autenticação robusta
+        auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+        sp = spotipy.Spotify(auth_manager=auth_manager)
 
-        # 2. Lógica para buscar TODAS as faixas
         found_tracks = []
         total_songs_scanned = 0
         
-        # Teste de conexão simples antes de baixar a playlist
-        print("Tentando conexão...")
+        # 1. Busca inicial (Pega as primeiras 100 músicas)
         results = sp.playlist_items(PLAYLIST_ID, market=MY_MARKET)
         
+        # 2. Loop de Paginação (Escaneia TODAS as faixas da playlist)
         while results:
             for item in results['items']:
                 track = item['track']
                 if track:
                     total_songs_scanned += 1
-                    # Verifica se a música está disponível no Brasil
+                    # Verifica se a música pode ser reproduzida no Brasil
                     if track.get('is_playable'):
                         found_tracks.append(f"{track['name']} - {track['artists'][0]['name']}")
             
-            # Se houver mais de 100, ele busca o próximo lote
+            # Se houver uma próxima página de músicas, ele continua
             if results['next']:
                 results = sp.next(results)
             else:
                 results = None
 
-        # 3. Notificação
+        # --- LÓGICA DE NOTIFICAÇÃO ---
         if found_tracks:
-            title = "New Songs Available"
-            message = f"Found {len(found_tracks)} new songs!\n" + "\n".join(found_tracks)
+            title = "Músicas Liberadas!"
+            message = f"Encontrei {len(found_tracks)} novas músicas disponíveis:\n" + "\n".join(found_tracks)
             tags = "tada,headphones"
         else:
-            title = "Status: No Updates"
-            message = f"Scanned {total_songs_scanned} tracks. All are still locked in {MY_MARKET}."
+            title = "Status: Sem Novidades"
+            message = f"Escaneadas {total_songs_scanned} faixas. Todas continuam bloqueadas em {MY_MARKET}."
             tags = "white_check_mark"
 
+        # Envia para o ntfy.sh
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
                       data=message.encode(encoding='utf-8'),
-                      headers={"Title": title, "Tags": tags})
+                      headers={
+                          "Title": title,
+                          "Tags": tags
+                      })
 
     except Exception as e:
-        error_msg = f"Error: {str(e)}"
+        # Alerta de erro detalhado para debug
+        error_str = str(e)
+        print(f"Erro detectado: {error_str}")
+        
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                      data=error_msg.encode(encoding='utf-8'),
+                      data=f"Erro: {error_str}".encode(encoding='utf-8'),
                       headers={"Title": "Tracker Error Alert"})
 
 if __name__ == "__main__":
