@@ -4,8 +4,8 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 
 # 1. Configuration
-CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
-CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
+CLIENT_ID = 'ea5f9e4831d2429d90564b630c921666'
+CLIENT_SECRET = 'c5fa223490da45fcafbdcea1ac47623e'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 NTFY_TOPIC = 'spotify_tracker' # Ensure this matches your phone app
 MY_MARKET = 'BR'
