@@ -12,14 +12,21 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
-        sp = spotipy.Spotify(auth_manager=auth_manager)
+        # Criamos o gerenciador de autenticação de forma mais robusta
+        client_credentials_manager = SpotifyClientCredentials(
+            client_id=CLIENT_ID, 
+            client_secret=CLIENT_SECRET
+        )
+        
+        # O segredo está aqui: forçar o sp a usar o token explicitamente
+        sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-        # 2. Lógica para buscar TODAS as faixas (Paginação)
+        # 2. Lógica para buscar TODAS as faixas
         found_tracks = []
         total_songs_scanned = 0
         
-        # Busca o primeiro lote de 100
+        # Teste de conexão simples antes de baixar a playlist
+        print("Tentando conexão...")
         results = sp.playlist_items(PLAYLIST_ID, market=MY_MARKET)
         
         while results:
