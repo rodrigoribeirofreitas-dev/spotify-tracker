@@ -3,30 +3,43 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 
-# 1. Setup Credentials
-CLIENT_ID = os.getenv('ea5f9e4831d2429d90564b630c921666')
-CLIENT_SECRET = os.getenv('eb5c0211d7c9442eb36425870ccf78ae')
-PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm?si=3056fbc771cd41fc&pt=55897c37bbeac6c83e448b5801b890e4'
+# 1. Configuration - These come from your GitHub Secrets later
+CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
+CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
+PLAYLIST_ID = 'YOUR_PLAYLIST_ID'  # Replace with your actual Playlist ID
 DISCORD_WEBHOOK = os.getenv('DISCORD_WEBHOOK')
+MY_MARKET = 'US'  # <--- CHANGE THIS to your 2-letter country code (e.g., 'BR', 'GB', 'CA')
 
+# 2. Authenticate
 auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 sp = spotipy.Spotify(auth_manager=auth_manager)
 
-def check_songs():
-    # Fetch tracks from the playlist
-    results = sp.playlist_items(PLAYLIST_ID, market='US') # Change 'US' to your country code
-    available_tracks = []
+def check_for_updates():
+    print(f"Checking playlist {PLAYLIST_ID} for available tracks in {MY_MARKET}...")
+    
+    # Get all items from the playlist
+    results = sp.playlist_items(PLAYLIST_ID, market=MY_MARKET)
+    found_tracks = []
 
     for item in results['items']:
         track = item['track']
-        # Spotify returns 'is_playable' as True if the song is now active
-        if track.get('is_playable'):
-            available_tracks.append(f"**{track['name']}** by {track['artists'][0]['name']}")
+        if track is None: continue # Skip if track is empty
+        
+        # The API only returns 'is_playable' if market is specified
+        if track.get('is_playable') == True:
+            track_info = f"🎵 **{track['name']}** - {track['artists'][0]['name']}"
+            found_tracks.append(track_info)
+            print(f"Found available track: {track['name']}")
 
-    # 2. Send Notification
-    if available_tracks:
-        message = "🎉 New songs available:\n" + "\n".join(available_tracks)
-        requests.post(DISCORD_WEBHOOK, json={"content": message})
+    # 3. Notify if anything is found
+    if found_tracks:
+        payload = {
+            "content": "🚨 **Spotify Availability Alert!**\nThe following songs are now playable:",
+            "embeds": [{"description": "\n".join(found_tracks), "color": 3066993}]
+        }
+        requests.post(DISCORD_WEBHOOK, json=payload)
+    else:
+        print("No new tracks found yet. Stay patient!")
 
 if __name__ == "__main__":
-    check_songs()
+    check_for_updates()
