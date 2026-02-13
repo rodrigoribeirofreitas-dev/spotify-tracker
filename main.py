@@ -6,7 +6,7 @@ import requests
 # 1. Configuração (Mantenha seus IDs aqui)
 CLIENT_ID = 'ea5f9e4831d2429d90564b630c921666'
 CLIENT_SECRET = 'c5fa223490da45fcafbdcea1ac47623e'
-PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
+PLAYLIST_ID = '3cKE9Q2sTLoETiwnSktln9'
 NTFY_TOPIC = 'spotify_tracker' 
 MY_MARKET = 'BR'
 
