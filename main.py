@@ -7,8 +7,7 @@ import requests
 CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
 CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
-# Change this to your unique ntfy topic name
-NTFY_TOPIC = 'spotify_tracker' 
+NTFY_TOPIC = 'spotify_tracker' # Ensure this matches your phone app
 MY_MARKET = 'BR'
 
 def check_for_updates():
@@ -31,35 +30,36 @@ def check_for_updates():
 
         # 2. Notification Logic
         if found_tracks:
-            # Alert for new available songs
-            title = "🚨 New Songs Available!"
+            title = "New Songs Available"
             message = "The following tracks are now playable:\n" + "\n".join(found_tracks)
-            tags = "tada,headphones,musical_note"
-            priority = "high"
+            tags = "tada,headphones"
         else:
-            # Status update for no news
-            title = "✅ Status: No Updates"
-            message = f"Scanned {total_songs_scanned} tracks. All are still unavailable in {MY_MARKET}."
-            tags = "white_check_mark,mag"
-            priority = "default"
+            title = "Status: No Updates"
+            message = f"Scanned {total_songs_scanned} tracks. All still unavailable in {MY_MARKET}."
+            tags = "white_check_mark"
 
-        # 3. Send to ntfy.sh
+        # Send to ntfy.sh (No emojis in the Title header to avoid crash)
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
                       data=message.encode(encoding='utf-8'),
                       headers={
                           "Title": title,
-                          "Priority": priority,
                           "Tags": tags
                       })
-        print(f"Update sent: {title}")
 
     except Exception as e:
-        # Emergency notification if the script crashes
-        error_msg = f"The tracker encountered an error: {str(e)}"
+        error_str = str(e)
+        print(f"Error detail: {error_str}")
+        
+        # Safe error notification
+        # We check for 'invalid_client' to give you a specific hint
+        if "invalid_client" in error_str:
+            hint = "Check your Spotify Client ID and Secret in GitHub Secrets. Ensure NO SPACES exist."
+        else:
+            hint = error_str
+
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                      data=error_msg.encode(encoding='utf-8'),
-                      headers={"Title": "⚠️ Tracker Error", "Priority": "urgent", "Tags": "x"})
-        print(f"Error: {e}")
+                      data=hint.encode(encoding='utf-8'),
+                      headers={"Title": "Tracker Error Alert"})
 
 if __name__ == "__main__":
     check_for_updates()
