@@ -6,9 +6,9 @@ import requests
 # 1. Configuration - These come from your GitHub Secrets later
 CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
 CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
-PLAYLIST_ID = 'YOUR_PLAYLIST_ID'  # Replace with your actual Playlist ID
+PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'  # Replace with your actual Playlist ID
 DISCORD_WEBHOOK = os.getenv('DISCORD_WEBHOOK')
-MY_MARKET = 'US'  # <--- CHANGE THIS to your 2-letter country code (e.g., 'BR', 'GB', 'CA')
+MY_MARKET = 'BR'  # <--- CHANGE THIS to your 2-letter country code (e.g., 'BR', 'GB', 'CA')
 
 # 2. Authenticate
 auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
