@@ -7,7 +7,7 @@ import requests
 CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
 CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'  # Your Manilla Road Watchlist
-DISCORD_WEBHOOK = os.getenv('DISCORD_WEBHOOK')
+NTFY_TOPIC = 'spotify_tracker'
 MY_MARKET = 'BR'  # Set specifically for Brazil
 
 def check_for_updates():
