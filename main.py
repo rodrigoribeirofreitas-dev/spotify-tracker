@@ -6,53 +6,40 @@ import requests
 # 1. Configuration
 CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
 CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
-PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'  # Your Manilla Road Watchlist
-NTFY_TOPIC = 'spotify_tracker'
-MY_MARKET = 'BR'  # Set specifically for Brazil
+PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
+# YOUR TOPIC: Change 'spotify_tracker_12345' to your unique name
+NTFY_TOPIC = 'spotify_tracker' 
+MY_MARKET = 'BR'
 
 def check_for_updates():
-    # --- DEBUG SECTION ---
-    print("--- Debug Information ---")
-    if not CLIENT_ID or not CLIENT_SECRET:
-        print("❌ ERROR: GitHub Secrets (ID or Secret) are MISSING!")
-    else:
-        print(f"✅ Client ID found (starts with: {CLIENT_ID[:4]}...)")
-        print(f"✅ Client Secret found (starts with: {CLIENT_SECRET[:4]}...)")
-    print(f"Checking playlist {PLAYLIST_ID} in market: {MY_MARKET}")
-    print("------------------------")
-    # ---------------------
-
     try:
-        # Authenticate
         auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
         sp = spotipy.Spotify(auth_manager=auth_manager)
 
-        # Fetch tracks
         results = sp.playlist_items(PLAYLIST_ID, market=MY_MARKET)
         found_tracks = []
 
         for item in results['items']:
             track = item['track']
             if track and track.get('is_playable'):
-                track_info = f"🎵 **{track['name']}** - {track['artists'][0]['name']}"
-                found_tracks.append(track_info)
+                found_tracks.append(f"{track['name']} - {track['artists'][0]['name']}")
 
-        # Notify
         if found_tracks:
-            print(f"Success! Found {len(found_tracks)} available tracks.")
-            payload = {
-                "content": "🚨 **Spotify Availability Alert!**",
-                "embeds": [{"description": "\n".join(found_tracks), "color": 3066993}]
-            }
-            requests.post(DISCORD_WEBHOOK, json=payload)
+            message = "New songs available:\n" + "\n".join(found_tracks)
+            # Send to ntfy
+            requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                          data=message.encode(encoding='utf-8'),
+                          headers={
+                              "Title": "Spotify Availability Alert 🎵",
+                              "Priority": "high",
+                              "Tags": "tada,headphones"
+                          })
+            print("Notification sent to ntfy!")
         else:
-            print("Scan complete: No tracks are available yet.")
+            print("No new tracks available.")
 
     except Exception as e:
-        print(f"❌ CRITICAL ERROR: {e}")
-        # This will help us see if it's still an auth issue
-        if "invalid_client" in str(e):
-            print("ADVICE: Your Client ID or Secret is still being rejected. Ensure you clicked 'SAVE' at the bottom of the Spotify Developer page!")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     check_for_updates()
