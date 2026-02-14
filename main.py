@@ -5,8 +5,8 @@ import requests
 
 # --- CONFIGURAÇÃO ---
 # Mantenha os códigos entre aspas para evitar erros de comunicação com o GitHub
-CLIENT_ID = 'ea5f9e4831d2429d90564b630c921666'
-CLIENT_SECRET = '27c460c3d5d24f0fb5b342e70a2339c9'
+CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
+CLIENT_SECRET = 'a873df6bb1974db6b963d25c14bf695a'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 NTFY_TOPIC = 'spotify_tracker' 
 MY_MARKET = 'BR'
