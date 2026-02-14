@@ -3,7 +3,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 
-# --- CONFIGURACAO ---
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = 'a873df6bb1974db6b963d25c14bf695a'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
@@ -12,11 +11,11 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        client_credentials_manager = SpotifyClientCredentials(
+        auth_manager = SpotifyClientCredentials(
             client_id=CLIENT_ID, 
             client_secret=CLIENT_SECRET
         )
-        sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager, requests_timeout=10)
+        sp = spotipy.Spotify(auth_manager=auth_manager)
 
         found_tracks = []
         total_songs_scanned = 0
@@ -47,15 +46,11 @@ def check_for_updates():
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
                       data=message.encode(encoding='utf-8'),
-                      headers={
-                          "Title": title,
-                          "Tags": tags
-                      })
+                      headers={"Title": title, "Tags": tags})
 
     except Exception as e:
-        error_str = str(e)
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                      data=f"Erro: {error_str}".encode(encoding='utf-8'),
+                      data=f"Erro: {str(e)}".encode(encoding='utf-8'),
                       headers={"Title": "Tracker Error Alert"})
 
 if __name__ == "__main__":
