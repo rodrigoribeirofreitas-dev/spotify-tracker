@@ -1,33 +1,24 @@
-name: Daily Spotify Check
+name: Spotify Availability Tracker
 
 on:
   schedule:
-    # This runs every 10 minutes as you requested
-    - cron: '0 */3 * * *'
-  workflow_dispatch: # This allows you to run it manually via the "Actions" tab
+    - cron: '0 */3 * * *'  # Roda a cada 3 horas (00:00, 03:00, 06:00...)
+  workflow_dispatch:      # Permite que rodes manualmente para testar
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/checkout@v3
         with:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install spotipy requests
+        run: pip install requests
 
       - name: Run tracker script
-        # This is the CRITICAL part that connects GitHub to your code
-        env:
-          SPOTIPY_CLIENT_ID: ${{ secrets.SPOTIPY_CLIENT_ID }}
-          SPOTIPY_CLIENT_SECRET: ${{ secrets.SPOTIPY_CLIENT_SECRET }}
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python main.py
