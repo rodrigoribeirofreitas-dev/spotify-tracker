@@ -3,7 +3,7 @@ name: Daily Spotify Check
 on:
   schedule:
     # This runs every 10 minutes as you requested
-    - cron: '*/10 * * * *'
+    - cron: '0 */3 * * *'
   workflow_dispatch: # This allows you to run it manually via the "Actions" tab
 
 jobs:
