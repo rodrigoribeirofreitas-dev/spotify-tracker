@@ -20,11 +20,11 @@ def check_for_updates():
         token = token_res.get('access_token')
 
         # 2. Varredura Total
-        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
+        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}
         headers = {"Authorization": f"Bearer {token}"}
         
         liberadas = []
-        total_analisado = 2000
+        total_analisado = 0
 
         while url:
             res = requests.get(url, headers=headers).json()
