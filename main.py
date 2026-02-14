@@ -4,7 +4,7 @@ import base64
 # Credenciais e a NOVA Playlist
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = '0ced5b2211c5471ca53c3fe938aa3ba3'
-PLAYLIST_ID = '2Cj8Wf0yD2eS15p63Vl0Gq' 
+PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm' 
 NTFY_TOPIC = 'spotify_tracker'
 MY_MARKET = 'BR'
 
