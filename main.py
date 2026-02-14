@@ -1,49 +1,66 @@
 import requests
 import base64
 
-# Credenciais Fixas
+# Credenciais e IDs
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = 'a873df6bb1974db6b963d25c14bf695a'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 NTFY_TOPIC = 'spotify_tracker'
+MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. LINK DIRETO PARA O TOKEN
-        # Conforme o manual: POST para /api/token com Basic Auth
-        auth_base64 = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+        # 1. Obter Token (Fluxo de Credenciais de Cliente)
+        auth_str = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        auth_base64 = base64.b64encode(auth_str.encode()).decode()
         token_res = requests.post(
             "https://accounts.spotify.com/api/token",
             headers={"Authorization": f"Basic {auth_base64}"},
             data={"grant_type": "client_credentials"}
-        )
-        token = token_res.json().get('access_token')
+        ).json()
+        token = token_res.get('access_token')
 
-        if not token:
-            raise Exception("Não foi possível gerar o token de acesso.")
-
-        # 2. LINK DIRETO PARA A PLAYLIST
-        # Acessando o endpoint de tracks sem parâmetros extras que causam 403
-        api_url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks"
+        # 2. Rastrear a Playlist (Sem filtro de mercado na URL para contar tudo)
+        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
         headers = {"Authorization": f"Bearer {token}"}
         
-        response = requests.get(api_url, headers=headers)
-        
-        # Verificação de status real
-        if response.status_code == 200:
-            data = response.json()
-            items = data.get('items', [])
-            total = len(items)
-            msg = f"SUCESSO! O link direto funcionou. {total} faixas lidas na primeira página."
-        elif response.status_code == 403:
-            msg = "Erro 403: O Spotify barrou o link direto. O App precisa de um 'Reset' no Dashboard."
-        else:
-            msg = f"Erro na API: Status {response.status_code}"
+        liberadas = []
+        total_analisado = 0
 
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
+        while url:
+            res = requests.get(url, headers=headers).json()
+            items = res.get('items', [])
+            
+            for item in items:
+                track = item.get('track')
+                if track:
+                    total_analisado += 1
+                    # Verificação manual de disponibilidade no Brasil
+                    markets = track.get('available_markets', [])
+                    if MY_MARKET in markets:
+                        liberadas.append(f"{track['name']} - {track['artists'][0]['name']}")
+            
+            # Navega para a próxima página de 100 músicas
+            url = res.get('next')
+
+        # 3. Enviar Notificação
+        if liberadas:
+            msg = f"BOAS NOTÍCIAS! {len(liberadas)} músicas foram liberadas no BR:\n\n" + "\n".join(liberadas)
+            title = "⚠️ Músicas Disponíveis!"
+            priority = "high"
+        else:
+            msg = f"Scan concluído: {total_analisado} itens verificados na tua playlist. Nenhuma novidade para o Brasil ainda."
+            title = "Status do Rastreador"
+            priority = "default"
+
+        requests.post(
+            f"https://ntfy.sh/{NTFY_TOPIC}",
+            data=msg.encode('utf-8'),
+            headers={"Title": title, "Priority": priority}
+        )
 
     except Exception as e:
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro Script: {str(e)}".encode('utf-8'))
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro no Script: {str(e)}".encode('utf-8'))
 
 if __name__ == "__main__":
     check_for_updates()
