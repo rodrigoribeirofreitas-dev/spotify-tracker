@@ -24,7 +24,7 @@ def check_for_updates():
         headers = {"Authorization": f"Bearer {token}"}
         
         liberadas = []
-        total_analisado = 0
+        total_analisado = 2000
 
         while url:
             res = requests.get(url, headers=headers).json()
