@@ -51,8 +51,8 @@ def check_for_updates():
 
     except Exception as e:
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                      data=f"Erro: {str(e)}".encode(encoding='utf-8'),
-                      headers={"Title": "Tracker Error Alert"})
+                      data=f"FAIA: {str(e)}".encode(encoding='utf-8'),
+                      headers={"Title": "DEU RUIM AQUI IRMÃO"})
 
 if __name__ == "__main__":
     check_for_updates()
