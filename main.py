@@ -9,7 +9,7 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. Gerar Token
+        # 1. Autenticação
         auth_str = f"{CLIENT_ID}:{CLIENT_SECRET}"
         auth_base64 = base64.b64encode(auth_str.encode()).decode()
         token_res = requests.post(
@@ -19,8 +19,8 @@ def check_for_updates():
         ).json()
         token = token_res.get('access_token')
 
-        # 2. Rastrear Faixas (Loop para pegar todas as 1.698)
-        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?market={MY_MARKET}&limit=100"
+        # 2. Varredura Completa (Sem filtro de mercado inicial)
+        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
         headers = {"Authorization": f"Bearer {token}"}
         
         liberadas = []
@@ -34,30 +34,24 @@ def check_for_updates():
                 track = item.get('track')
                 if track:
                     total_analisado += 1
-                    # Verifica se a música pode ser reproduzida no Brasil
-                    if track.get('is_playable'):
+                    # Verificamos manualmente se o Brasil está nos mercados disponíveis
+                    markets = track.get('available_markets', [])
+                    if MY_MARKET in markets:
                         liberadas.append(f"{track['name']} - {track['artists'][0]['name']}")
             
-            # Pega o link da próxima página de músicas
             url = res.get('next')
 
-        # 3. Enviar Resultado para o ntfy
+        # 3. Notificação Customizada
         if liberadas:
-            msg = f"BOAS NOTICIAS! {len(liberadas)} musicas liberadas:\n\n" + "\n".join(liberadas)
-            title = "Musicas Disponiveis!"
-            priority = "high"
-            tags = "tada,headphones"
+            msg = f"ALERTA! {len(liberadas)} musicas liberadas no BR:\n\n" + "\n".join(liberadas)
+            title = "⚠️ Novidade na Playlist!"
         else:
-            msg = f"Scan concluido: {total_analisado} musicas verificadas na playlist. Nenhuma novidade no momento."
+            msg = f"Scan concluido: {total_analisado} itens verificados. Nada liberado para {MY_MARKET} ainda."
             title = "Status do Rastreador"
-            priority = "default"
-            tags = "mag"
 
-        requests.post(
-            f"https://ntfy.sh/{NTFY_TOPIC}",
-            data=msg.encode('utf-8'),
-            headers={"Title": title, "Priority": priority, "Tags": tags}
-        )
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                      data=msg.encode('utf-8'),
+                      headers={"Title": title})
 
     except Exception as e:
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro no Script: {str(e)}".encode('utf-8'))
