@@ -19,7 +19,7 @@ def check_for_updates():
         token = token_res.json().get('access_token')
 
         # 2. Acessando a Playlist
-        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?market=BR"
+        url = f"https://open.spotify.com/playlist/{PLAYLIST_ID}"
         headers = {"Authorization": f"Bearer {token}"}
         res = requests.get(url, headers=headers)
 
