@@ -5,6 +5,10 @@ import requests
 
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = 'a873df6bb1974db6b963d25c14bf695a'
+
+os.environ['SPOTIPY_CLIENT_ID'] = CLIENT_ID
+os.environ['SPOTIPY_CLIENT_SECRET'] = CLIENT_SECRET
+
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 NTFY_TOPIC = 'spotify_tracker' 
 MY_MARKET = 'BR'
