@@ -12,8 +12,11 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
-        sp = spotipy.Spotify(auth_manager=auth_manager)
+        client_credentials_manager = SpotifyClientCredentials(
+            client_id=CLIENT_ID, 
+            client_secret=CLIENT_SECRET
+        )
+        sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager, requests_timeout=10)
 
         found_tracks = []
         total_songs_scanned = 0
