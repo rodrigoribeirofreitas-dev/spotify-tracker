@@ -1,47 +1,58 @@
 import requests
 import base64
 
+# Credenciais e a NOVA Playlist
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = '0ced5b2211c5471ca53c3fe938aa3ba3'
-PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
+PLAYLIST_ID = '2Cj8Wf0yD2eS15p63Vl0Gq' 
 NTFY_TOPIC = 'spotify_tracker'
+MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. Gerar Token com identidade protegida
+        # 1. Autenticação (Fluxo de Servidor)
         auth_str = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
-        
-        # Headers de um navegador real para evitar o bloqueio
-        headers_comuns = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9"
-        }
-
         token_res = requests.post(
             "https://accounts.spotify.com/api/token",
-            headers={**headers_comuns, "Authorization": f"Basic {auth_str}"},
+            headers={"Authorization": f"Basic {auth_str}"},
             data={"grant_type": "client_credentials"}
-        )
-        token = token_res.json().get('access_token')
+        ).json()
+        token = token_res.get('access_token')
 
-        # 2. Acesso à Playlist (Apenas os primeiros itens para teste)
-        # Se o Forbidden persistir aqui, o Spotify bloqueou esse ID de playlist para APIs
-        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=10"
+        # 2. Varredura da Nova Playlist
+        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
+        headers = {"Authorization": f"Bearer {token}"}
         
-        res = requests.get(url, headers={**headers_comuns, "Authorization": f"Bearer {token}"})
+        liberadas = []
+        total_analisado = 0
 
-        if res.status_code == 200:
-            total = res.json().get('total', 0)
-            msg = f"VITÓRIA! O modo camuflagem funcionou. {total} faixas detectadas. O rastreador está oficialmente vivo!"
-        elif res.status_code == 403:
-            msg = "ERRO 403: O Spotify bloqueou permanentemente o acesso via API a esta playlist específica."
+        res = requests.get(url, headers=headers).json()
+        items = res.get('items', [])
+        total_playlist = res.get('total', 0)
+
+        for item in items:
+            track = item.get('track')
+            if track:
+                total_analisado += 1
+                # Verifica se o Brasil está nos mercados disponíveis
+                if MY_MARKET in track.get('available_markets', []):
+                    artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
+                    liberadas.append(f"{track['name']} - {artist}")
+
+        # 3. Notificação Customizada
+        if liberadas:
+            msg = f"BOAS NOTÍCIAS! {len(liberadas)} músicas liberadas na nova lista:\n\n" + "\n".join(liberadas)
+            title = "⚠️ Novidade!"
         else:
-            msg = f"Falha: Status {res.status_code}. O Spotify está instável."
+            msg = f"Nova Playlist OK: {total_analisado} de {total_playlist} músicas verificadas. Nada no BR ainda."
+            title = "Rastreador Ativo"
 
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                      data=msg.encode('utf-8'),
+                      headers={"Title": title})
 
     except Exception as e:
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro Crítico: {str(e)}".encode('utf-8'))
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro na nova lista: {str(e)}".encode('utf-8'))
 
 if __name__ == "__main__":
     check_for_updates()
