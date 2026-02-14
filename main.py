@@ -9,50 +9,57 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. Autenticação Direta
-        auth_str = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+        # 1. Autenticação (Corrigida)
+        auth_str = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        auth_base64 = base64.b64encode(auth_str.encode()).decode()
+        
         token_res = requests.post(
             "https://accounts.spotify.com/api/token",
-            headers={"Authorization": f"Basic {auth_base64}"}, # Se der erro aqui, use auth_str
+            headers={"Authorization": f"Basic {auth_base64}"},
             data={"grant_type": "client_credentials"}
-        ).json()
-        token = token_res.get('access_token')
+        )
+        token = token_res.json().get('access_token')
 
-        # 2. O Pulo do Gato: Forçar a leitura da primeira página com Market
-        # Usamos 'market=BR' para que o Spotify seja obrigado a filtrar os itens
+        # 2. Busca das Músicas (Com Paginação para ler as ~1700)
         url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&market={MY_MARKET}"
         headers = {"Authorization": f"Bearer {token}"}
         
-        response = requests.get(url, headers=headers)
-        
-        # Se ele retornar 0 aqui, vamos tentar um 'offset' de 1 para forçar o cache
-        if response.json().get('total', 0) == 0:
-            url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&offset=1&market={MY_MARKET}"
-            response = requests.get(url, headers=headers)
-
-        data = response.json()
-        total_real = data.get('total', 0)
-        items = data.get('items', [])
-        
         liberadas = []
-        total_lido = 0
+        total_analisado = 0
+        total_no_spotify = 0
 
-        for item in items:
-            track = item.get('track')
-            if track and track.get('name'):
-                total_lido += 1
-                # Se a música aparecer aqui, é porque ela está disponível para o Market BR
-                artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
-                liberadas.append(f"{track['name']} - {artist}")
+        while url:
+            res = requests.get(url, headers=headers).json()
+            
+            # Pega o total real na primeira resposta
+            if total_no_spotify == 0:
+                total_no_spotify = res.get('total', 0)
+            
+            items = res.get('items', [])
+            if not items:
+                break
 
-        # 3. Notificação Realista
-        if total_real > 0:
+            for item in items:
+                track = item.get('track')
+                if track and track.get('name'):
+                    total_analisado += 1
+                    # Como passamos 'market=BR' na URL, as faixas que 
+                    # retornarem aqui são as que estão disponíveis.
+                    artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
+                    liberadas.append(f"{track['name']} - {artist}")
+            
+            # Vai para a próxima página
+            url = res.get('next')
+
+        # 3. Notificação
+        if total_analisado > 0:
             if liberadas:
-                msg = f"🔥 SUCESSO! {len(liberadas)} músicas detectadas como ONLINE no BR!\n\n" + "\n".join(liberadas)
+                msg = f"🔥 SUCESSO! {len(liberadas)} músicas disponíveis no BR:\n\n" + "\n".join(liberadas[:20])
+                if len(liberadas) > 20: msg += "\n... e outras."
             else:
-                msg = f"Rastreador Conectado: Li {total_lido} de {total_real} músicas. Nenhuma liberada no BR ainda."
+                msg = f"Rastreador OK: {total_analisado} de {total_no_spotify} músicas lidas. Nenhuma liberada no BR ainda."
         else:
-            msg = "A API do Spotify continua reportando 0 músicas. Isso indica que o seu Client ID não tem permissão de leitura para este conteúdo."
+            msg = f"A API conectou, mas a lista veio vazia. Playlist ID: {PLAYLIST_ID}"
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
