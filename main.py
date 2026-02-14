@@ -3,7 +3,7 @@ import base64
 
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = '0ced5b2211c5471ca53c3fe938aa3ba3'
-PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
+PLAYLIST_ID = '6DTzdAaVuqJlJPAml1GW0X'
 NTFY_TOPIC = 'spotify_tracker'
 
 def check_for_updates():
