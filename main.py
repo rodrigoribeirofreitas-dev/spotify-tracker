@@ -21,7 +21,7 @@ def check_for_updates():
         total_songs_scanned = 0
         
         # 1. Busca inicial (Pega as primeiras 100 músicas)
-        results = sp.playlist_items(PLAYLIST_ID, market=MY_MARKET)
+        results = sp.playlist_items(PLAYLIST_ID)
         
         # 2. Loop de Paginação (Escaneia TODAS as faixas da playlist)
         while results:
