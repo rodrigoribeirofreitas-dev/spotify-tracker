@@ -1,7 +1,7 @@
 import requests
 import base64
 
-# Credenciais e IDs
+# Suas credenciais
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = 'a873df6bb1974db6b963d25c14bf695a'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
@@ -10,7 +10,7 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. Obter Token (Fluxo de Credenciais de Cliente)
+        # 1. Autenticação (Client Credentials)
         auth_str = f"{CLIENT_ID}:{CLIENT_SECRET}"
         auth_base64 = base64.b64encode(auth_str.encode()).decode()
         token_res = requests.post(
@@ -20,7 +20,7 @@ def check_for_updates():
         ).json()
         token = token_res.get('access_token')
 
-        # 2. Rastrear a Playlist (Sem filtro de mercado na URL para contar tudo)
+        # 2. Varredura da Playlist (Sem filtros iniciais para contar tudo)
         url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
         headers = {"Authorization": f"Bearer {token}"}
         
@@ -40,24 +40,20 @@ def check_for_updates():
                     if MY_MARKET in markets:
                         liberadas.append(f"{track['name']} - {track['artists'][0]['name']}")
             
-            # Navega para a próxima página de 100 músicas
+            # Pula para a próxima página de 100 músicas
             url = res.get('next')
 
-        # 3. Enviar Notificação
+        # 3. Resultado para o ntfy
         if liberadas:
-            msg = f"BOAS NOTÍCIAS! {len(liberadas)} músicas foram liberadas no BR:\n\n" + "\n".join(liberadas)
-            title = "⚠️ Músicas Disponíveis!"
-            priority = "high"
+            msg = f"BOAS NOTICIAS! {len(liberadas)} musicas liberadas no BR:\n\n" + "\n".join(liberadas)
+            title = "⚠️ Musicas Disponiveis!"
         else:
-            msg = f"Scan concluído: {total_analisado} itens verificados na tua playlist. Nenhuma novidade para o Brasil ainda."
+            msg = f"Scan concluido: {total_analisado} itens verificados na sua playlist. Nenhuma novidade para o Brasil ainda."
             title = "Status do Rastreador"
-            priority = "default"
 
-        requests.post(
-            f"https://ntfy.sh/{NTFY_TOPIC}",
-            data=msg.encode('utf-8'),
-            headers={"Title": title, "Priority": priority}
-        )
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                      data=msg.encode('utf-8'),
+                      headers={"Title": title})
 
     except Exception as e:
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro no Script: {str(e)}".encode('utf-8'))
