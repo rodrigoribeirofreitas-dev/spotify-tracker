@@ -10,6 +10,7 @@ os.environ['SPOTIPY_CLIENT_ID'] = CLIENT_ID
 os.environ['SPOTIPY_CLIENT_SECRET'] = CLIENT_SECRET
 
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
+REDIRECT_URI = 'http://localhost:8888/callback'
 NTFY_TOPIC = 'spotify_tracker' 
 MY_MARKET = 'BR'
 
