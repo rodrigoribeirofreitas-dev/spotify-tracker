@@ -1,59 +1,45 @@
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
 import requests
+import base64
 
-# Suas credenciais validadas
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = 'a873df6bb1974db6b963d25c14bf695a'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 NTFY_TOPIC = 'spotify_tracker'
-MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # PASSO 1: Obter Access Token usando Client Credentials Flow (conforme seu texto)
-        # O Spotipy faz o POST para /api/token automaticamente aqui
-        auth_manager = SpotifyClientCredentials(
-            client_id=CLIENT_ID, 
-            client_secret=CLIENT_SECRET
-        )
-        sp = spotipy.Spotify(auth_manager=auth_manager)
-
-        # PASSO 2: Chamar o Endpoint da Playlist (GET /playlists/{playlist_id})
-        # Apenas playlists publicas no perfil sao retornadas neste fluxo
-        results = sp.playlist_items(PLAYLIST_ID, market=MY_MARKET)
+        # 1. Obter Token via Client Credentials (Manual)
+        auth_str = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        auth_base64 = base64.b64encode(auth_str.encode()).decode()
         
-        found_tracks = []
-        total_scanned = 0
+        token_url = "https://accounts.spotify.com/api/token"
+        headers_token = {"Authorization": f"Basic {auth_base64}"}
+        data_token = {"grant_type": "client_credentials"}
         
-        while results:
-            for item in results['items']:
-                track = item['track']
-                if track:
-                    total_scanned += 1
-                    # Verifica se a musica esta liberada no mercado brasileiro
-                    if track.get('is_playable'):
-                        found_tracks.append(f"{track['name']} - {track['artists'][0]['name']}")
-            
-            # Paginação para ler todas as faixas (o endpoint retorna em blocos)
-            results = sp.next(results) if results['next'] else None
+        token_res = requests.post(token_url, headers=headers_token, data=data_token)
+        token = token_res.json().get('access_token')
 
-        # --- NOTIFICAÇÃO ---
-        if found_tracks:
-            title = "Musicas Liberadas!"
-            msg = f"Encontrei {len(found_tracks)} musicas disponiveis no Brasil."
+        if not token:
+            raise Exception("Nao foi possivel gerar o token. Verifique Client ID/Secret.")
+
+        # 2. Acessar a Playlist diretamente
+        api_url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks"
+        headers_api = {"Authorization": f"Bearer {token}"}
+        
+        res = requests.get(api_url, headers=headers_api)
+        
+        if res.status_code == 403:
+            msg = "Erro 403: O Spotify ainda recusa o acesso deste App. Verifique o User Management e clique em SAVE."
+        elif res.status_code == 200:
+            tracks = res.json().get('items', [])
+            msg = f"Sucesso! Conectado. {len(tracks)} faixas encontradas na primeira pagina."
         else:
-            title = "Status: Sem Novidades"
-            msg = f"Scan concluido: {total_scanned} faixas verificadas. Todas continuam bloqueadas."
+            msg = f"Erro inesperado: Status {res.status_code}"
 
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                      data=msg.encode('utf-8'),
-                      headers={"Title": title})
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
     except Exception as e:
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                      data=f"Erro de Acesso: {str(e)}".encode('utf-8'),
-                      headers={"Title": "Erro 403 ou Conexao"})
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro Script: {str(e)}".encode('utf-8'))
 
 if __name__ == "__main__":
     check_for_updates()
