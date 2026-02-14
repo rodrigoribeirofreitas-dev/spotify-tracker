@@ -2,8 +2,8 @@ name: Spotify Availability Tracker
 
 on:
   schedule:
-    - cron: '0 */3 * * *'  # Roda a cada 3 horas (00:00, 03:00, 06:00...)
-  workflow_dispatch:      # Permite que rodes manualmente para testar
+    - cron: '0 */3 * * *'  # Roda a cada 3 horas (Horário UTC)
+  workflow_dispatch:      # Permite rodar manualmente clicando no botão "Run workflow"
 
 jobs:
   build:
@@ -13,12 +13,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/checkout@v3
+        uses: actions/setup-python@v4  # CORRIGIDO: Agora ele realmente instala o Python
         with:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests; fi
 
       - name: Run tracker script
         run: python main.py
