@@ -9,8 +9,11 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. Autenticação (Client Credentials)
-        auth_base64 = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+        # 1. Autenticação por Link Direto (Client Credentials)
+        # Este fluxo não usa Redirect URI, por isso é mais seguro agora
+        auth_bytes = f"{CLIENT_ID}:{CLIENT_SECRET}".encode('utf-8')
+        auth_base64 = base64.b64encode(auth_bytes).decode('utf-8')
+        
         token_res = requests.post(
             "https://accounts.spotify.com/api/token",
             headers={"Authorization": f"Basic {auth_base64}"},
@@ -18,45 +21,35 @@ def check_for_updates():
         ).json()
         token = token_res.get('access_token')
 
-        # 2. Varredura Total da Playlist
+        # 2. Acesso ao Endpoint de Faixas
+        # Usamos o link direto da API para evitar bloqueios de interface
         url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
         headers = {"Authorization": f"Bearer {token}"}
         
-        liberadas = []
-        total_analisado = 0
-        total_reportado_api = 0
-
-        while url:
-            res_raw = requests.get(url, headers=headers)
-            res = res_raw.json()
+        res = requests.get(url, headers=headers)
+        
+        if res.status_code == 403:
+            msg = "ERRO 403: O Spotify ainda bloqueia seu App. Verifique se o seu e-mail esta no User Management."
+        elif res.status_code == 200:
+            data = res.json()
+            total = data.get('total', 0)
+            items = data.get('items', [])
             
-            if res_raw.status_code != 200:
-                raise Exception(f"Erro API: {res_raw.status_code}")
-
-            total_reportado_api = res.get('total', 0)
-            items = res.get('items', [])
+            total_analisado = 0
+            liberadas = []
             
-            if not items:
-                break
-
             for item in items:
                 total_analisado += 1
                 track = item.get('track')
-                if track and isinstance(track, dict):
-                    markets = track.get('available_markets', [])
-                    if MY_MARKET in markets:
-                        artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
-                        liberadas.append(f"{track.get('name', 'S/N')} - {artist}")
+                if track and MY_MARKET in track.get('available_markets', []):
+                    liberadas.append(f"{track['name']} - {track['artists'][0]['name']}")
             
-            url = res.get('next')
-
-        # 3. Notificação de Status
-        if total_analisado == 0:
-            msg = f"ALERTA: Playlist vazia para a API. Total no Spotify: {total_reportado_api}. Verifique 'Adicionar ao Perfil'."
-        elif liberadas:
-            msg = f"BOAS NOTICIAS! {len(liberadas)} musicas liberadas:\n\n" + "\n".join(liberadas)
+            if total_analisado > 0:
+                msg = f"SUCESSO! Li {total_analisado} musicas de um total de {total}. Novas no BR: {len(liberadas)}"
+            else:
+                msg = f"CONECTADO: Mas a lista de musicas veio vazia. Verifique se a playlist e publica."
         else:
-            msg = f"Scan concluido: {total_analisado} musicas verificadas (Total: {total_reportado_api}). Nada no BR ainda."
+            msg = f"Erro inesperado: Status {res.status_code}"
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
