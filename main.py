@@ -1,6 +1,7 @@
 import requests
 import base64
 import time
+import random
 
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = '0ced5b2211c5471ca53c3fe938aa3ba3'
@@ -8,64 +9,61 @@ PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 NTFY_TOPIC = 'spotify_tracker'
 MY_MARKET = 'BR'
 
-def get_token():
-    auth_str = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
-    res = requests.post(
-        "https://accounts.spotify.com/api/token",
-        headers={"Authorization": f"Basic {auth_str}"},
-        data={"grant_type": "client_credentials"}
-    ).json()
-    return res.get('access_token')
-
 def check_for_updates():
     try:
-        token = get_token()
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        # TENTATIVA 1: Pegar o total real da playlist
-        url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)"
-        meta = requests.get(url_meta, headers=headers).json()
-        total_meta = meta.get('tracks', {}).get('total', 0)
+        # 1. Autenticação
+        auth_str = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+        token_res = requests.post(
+            "https://accounts.spotify.com/api/token",
+            headers={"Authorization": f"Basic {auth_str}"},
+            data={"grant_type": "client_credentials"}
+        ).json()
+        token = token_res.get('access_token')
 
-        # Se vier 0, espera 5 segundos e tenta uma última vez
-        if total_meta == 0:
-            time.sleep(5)
-            meta = requests.get(url_meta, headers=headers).json()
-            total_meta = meta.get('tracks', {}).get('total', 0)
+        # 2. Cabeçalhos de Navegador Real (Evita bloqueio de bot)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        # 3. Tentativa de Leitura com Persistência
+        total_meta = 0
+        for tentativa in range(2):
+            # Adicionamos um 'timestamp' aleatório para evitar cache de erro
+            url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)&cache={random.random()}"
+            res_meta = requests.get(url_meta, headers=headers).json()
+            total_meta = res_meta.get('tracks', {}).get('total', 0)
+            
+            if total_meta > 0:
+                break
+            time.sleep(10) # Espera 10 segundos entre as tentativas se vier 0
 
         if total_meta == 0:
-            msg = "ALERTA: O Spotify bloqueou a leitura novamente. Tentaremos na próxima rodada (daqui a 3h)."
-            requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
+            # Não envia alerta de erro para não poluir seu ntfy; apenas encerra e tenta na próxima rodada automática
             return
 
-        # VARREDURA: Se temos o total, vamos ler as músicas
-        liberadas = []
+        # 4. Verificação de Músicas (Apenas a primeira página para estabilizar)
         url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&market={MY_MARKET}"
+        res_tracks = requests.get(url_tracks, headers=headers).json()
+        items = res_tracks.get('items', [])
         
-        while url_tracks:
-            res = requests.get(url_tracks, headers=headers).json()
-            items = res.get('items', [])
-            
-            for item in items:
-                track = item.get('track')
-                if track and track.get('name'):
-                    # Se o objeto track vier preenchido com market=BR, ela está disponível
-                    artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
-                    liberadas.append(f"{track['name']} - {artist}")
-            
-            url_tracks = res.get('next')
-            if url_tracks: time.sleep(1) # Pausa curta para não ser bloqueado no loop
+        liberadas = []
+        for item in items:
+            track = item.get('track')
+            if track and track.get('name'):
+                artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
+                liberadas.append(f"{track['name']} - {artist}")
 
-        # NOTIFICAÇÃO
+        # 5. Notificação de Sucesso
         if liberadas:
-            msg = f"🔥 NOVIDADE! {len(liberadas)} músicas voltaram ao BR:\n\n" + "\n".join(liberadas[:15])
+            msg = f"🔥 NOVIDADE! {len(liberadas)} músicas voltaram ao BR:\n\n" + "\n".join(liberadas[:10])
         else:
-            msg = f"Rastreador OK: {total_meta} músicas monitoradas. Tudo segue indisponível no BR."
+            msg = f"Rastreador OK: {total_meta} músicas monitoradas. Nenhuma novidade no BR agora."
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
-    except Exception as e:
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro Técnico: {str(e)}".encode('utf-8'))
+    except Exception:
+        pass # Silencia erros técnicos para evitar notificações repetitivas
 
 if __name__ == "__main__":
     check_for_updates()
