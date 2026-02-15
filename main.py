@@ -9,7 +9,7 @@ MY_MARKET = 'BR'
 
 def check_for_updates():
     try:
-        # 1. Autenticação (O que funcionou)
+        # 1. Autenticação (Fluxo de Servidor)
         auth_str = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
         token_res = requests.post(
             "https://accounts.spotify.com/api/token",
@@ -18,7 +18,8 @@ def check_for_updates():
         ).json()
         token = token_res.get('access_token')
 
-        # 2. Varredura Completa (Paginação)
+        # 2. Varredura com Parâmetro de Mercado Obrigatório
+        # O segredo é manter o market=BR em todas as chamadas
         url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&market={MY_MARKET}"
         headers = {"Authorization": f"Bearer {token}"}
         
@@ -27,6 +28,10 @@ def check_for_updates():
         total_meta = 0
 
         while url:
+            # Garante que o market=BR seja anexado se a URL 'next' não o tiver
+            if 'market=' not in url:
+                url += f"&market={MY_MARKET}"
+                
             res = requests.get(url, headers=headers).json()
             
             if total_meta == 0:
@@ -38,29 +43,28 @@ def check_for_updates():
 
             for item in items:
                 track = item.get('track')
-                if track and track.get('name'):
+                if track:
                     total_analisado += 1
-                    # Se a música aparece aqui com market=BR, ela está disponível
-                    # Músicas indisponíveis (cinzas) não retornam o objeto 'track' completo ou são filtradas
-                    artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
-                    liberadas.append(f"{track['name']} - {artist}")
+                    # Se a música está disponível no BR, ela terá o nome visível aqui
+                    if track.get('name'):
+                        artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
+                        liberadas.append(f"{track['name']} - {artist}")
             
-            url = res.get('next') # Pega a próxima página de 100
+            url = res.get('next')
 
-        # 3. Notificação Final
-        if liberadas:
-            # Envia apenas as primeiras 20 para não travar o ntfy, mas avisa o total
-            lista_str = "\n".join(liberadas[:20])
-            msg = f"🔥 VITÓRIA! {len(liberadas)} músicas detectadas no BR!\n\n{lista_str}"
-            if len(liberadas) > 20:
-                msg += f"\n... e mais {len(liberadas)-20} faixas."
+        # 3. Notificação Inteligente
+        if total_analisado > 0:
+            if liberadas:
+                msg = f"🔥 VITÓRIA! {len(liberadas)} músicas detectadas no BR!\n\n" + "\n".join(liberadas[:20])
+            else:
+                msg = f"Rastreador OK: {total_analisado} de {total_meta} músicas verificadas. Nada no BR ainda."
         else:
-            msg = f"Rastreador OK: {total_analisado} de {total_meta} músicas verificadas. Tudo segue indisponível no BR."
+            msg = f"ALERTA: O Spotify ocultou as músicas novamente (Total meta: {total_meta}). Tentando contornar..."
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
     except Exception as e:
-        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro no Loop: {str(e)}".encode('utf-8'))
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=f"Erro Técnico: {str(e)}".encode('utf-8'))
 
 if __name__ == "__main__":
     check_for_updates()
