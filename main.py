@@ -20,50 +20,59 @@ def check_for_updates():
         ).json()
         token = token_res.get('access_token')
 
-        # 2. Cabeçalhos de Navegador Real (Evita bloqueio de bot)
         headers = {
             "Authorization": f"Bearer {token}",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
-        # 3. Tentativa de Leitura com Persistência
+        # 2. Tentativa de Leitura do Total
         total_meta = 0
         for tentativa in range(2):
-            # Adicionamos um 'timestamp' aleatório para evitar cache de erro
             url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)&cache={random.random()}"
             res_meta = requests.get(url_meta, headers=headers).json()
             total_meta = res_meta.get('tracks', {}).get('total', 0)
             
             if total_meta > 0:
                 break
-            time.sleep(10) # Espera 10 segundos entre as tentativas se vier 0
+            time.sleep(10)
 
         if total_meta == 0:
-            # Não envia alerta de erro para não poluir seu ntfy; apenas encerra e tenta na próxima rodada automática
+            # AGORA ENVIA ALERTA DE BLOQUEIO
+            requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                          data=f"⚠️ BLOQUEIO: O Spotify retornou 0 músicas. Tentarei novamente em 3h.".encode('utf-8'))
             return
 
-        # 4. Verificação de Músicas (Apenas a primeira página para estabilizar)
+        # 3. Verificação de Músicas (Paginação)
         url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&market={MY_MARKET}"
-        res_tracks = requests.get(url_tracks, headers=headers).json()
-        items = res_tracks.get('items', [])
-        
         liberadas = []
-        for item in items:
-            track = item.get('track')
-            if track and track.get('name'):
-                artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
-                liberadas.append(f"{track['name']} - {artist}")
+        total_lido = 0
 
-        # 5. Notificação de Sucesso
+        while url_tracks:
+            res_tracks = requests.get(url_tracks, headers=headers).json()
+            items = res_tracks.get('items', [])
+            
+            for item in items:
+                track = item.get('track')
+                if track and track.get('name'):
+                    total_lido += 1
+                    artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
+                    liberadas.append(f"{track['name']} - {artist}")
+            
+            url_tracks = res_tracks.get('next')
+            if url_tracks: time.sleep(1)
+
+        # 4. Notificações de Status (Sempre enviadas)
         if liberadas:
             msg = f"🔥 NOVIDADE! {len(liberadas)} músicas voltaram ao BR:\n\n" + "\n".join(liberadas[:10])
         else:
-            msg = f"Rastreador OK: {total_meta} músicas monitoradas. Nenhuma novidade no BR agora."
+            msg = f"✅ Rastreador OK: {total_meta} músicas monitoradas. Nenhuma novidade no BR."
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
-    except Exception:
-        pass # Silencia erros técnicos para evitar notificações repetitivas
+    except Exception as e:
+        # AGORA ENVIA ERROS TÉCNICOS
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                      data=f"❌ ERRO TÉCNICO: {str(e)}".encode('utf-8'))
 
 if __name__ == "__main__":
     check_for_updates()
