@@ -2,6 +2,7 @@ import requests
 import base64
 import time
 
+# CREDENCIAIS RESTAURADAS
 CLIENT_ID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CLIENT_SECRET = '0ced5b2211c5471ca53c3fe938aa3ba3'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
@@ -20,42 +21,35 @@ def check_for_updates():
 
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 2. Pega o Total (Meta)
-        url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)"
-        res_meta = requests.get(url_meta, headers=headers).json()
-        total_meta = res_meta.get('tracks', {}).get('total', 0)
-
-        # 3. Varredura Ampla (Sem filtro de mercado na URL)
-        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
-        disponiveis = []
+        # 2. Leitura do Objeto da Playlist (Pega o total e o nome)
+        # Usar o endpoint direto da playlist é mais estável que o de tracks
+        url_playlist = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}"
+        res_playlist = requests.get(url_playlist, headers=headers).json()
         
-        while url_tracks:
-            res_tracks = requests.get(url_tracks, headers=headers).json()
-            items = res_tracks.get('items', [])
-            
-            for item in items:
-                track = item.get('track')
-                # CRITÉRIO NOVO: Se tem nome e ID, o robô consegue "ver" a música
-                if track and track.get('id') and track.get('name'):
-                    # Verifica se ela NÃO é um item local ou fantasma
-                    if not track.get('is_local'):
-                        artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
-                        disponiveis.append(f"{track['name']} - {artist}")
-            
-            url_tracks = res_tracks.get('next')
-            if url_tracks: time.sleep(0.5)
+        total_meta = res_playlist.get('tracks', {}).get('total', 0)
+        
+        # 3. Varredura de Disponibilidade (Pega as primeiras 100)
+        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
+        res_tracks = requests.get(url_tracks, headers=headers).json()
+        items = res_tracks.get('items', [])
+        
+        tocaveis = []
+        for item in items:
+            track = item.get('track')
+            # Critério: se tem nome e não é local, o robô está vendo
+            if track and track.get('name') and not track.get('is_local'):
+                artist = track['artists'][0]['name'] if track.get('artists') else "Unknown"
+                tocaveis.append(f"{track['name']} - {artist}")
 
-        # 4. Relatório
-        qtd_disponiveis = len(disponiveis)
-        qtd_indisponiveis = total_meta - qtd_disponiveis
+        # 4. Relatório Final
+        qtd_tocaveis = len(tocaveis)
+        msg = f"📊 Status da Playlist: {res_playlist.get('name', 'N/A')}\n\n"
+        msg += f"Total de Itens: {total_meta}\n"
+        msg += f"🟢 Tocáveis (Nesta página): {qtd_tocaveis}\n"
+        msg += f"🔴 Bloqueadas: {total_meta - qtd_tocaveis}\n"
 
-        msg = f"📊 Relatório Atualizado\n\n"
-        msg += f"Total: {total_meta}\n"
-        msg += f"🟢 Tocáveis/Visíveis: {qtd_disponiveis}\n"
-        msg += f"🔴 Bloqueadas: {qtd_indisponiveis}\n"
-
-        if qtd_disponiveis > 0:
-            msg += "\n🎵 Exemplos Disponíveis:\n" + "\n".join(disponiveis[:10])
+        if qtd_tocaveis > 0:
+            msg += "\n🎵 Primeiras visíveis:\n" + "\n".join(tocaveis[:5])
 
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
