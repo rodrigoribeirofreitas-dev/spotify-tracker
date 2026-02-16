@@ -10,7 +10,7 @@ NTFY_TOPIC = 'spotify_tracker'
 
 def check_for_updates():
     try:
-        # 1. Autenticação (Mantida)
+        # 1. Autenticação
         auth_str = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
         token_res = requests.post("https://accounts.spotify.com/api/token",
             headers={"Authorization": f"Basic {auth_str}"},
@@ -18,44 +18,38 @@ def check_for_updates():
         token = token_res.get('access_token')
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 2. Leitura do Total (Âncora de 1699)
-        url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)&cache={random.random()}"
-        res_meta = requests.get(url_meta, headers=headers).json()
-        total_meta = res_meta.get('tracks', {}).get('total', 0)
+        # 2. Tentativa de Leitura com Paciência (Anti-Bloqueio)
+        total_meta = 0
+        for i in range(3): # Aumentamos para 3 tentativas
+            url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)&cache={random.random()}"
+            res_meta = requests.get(url_meta, headers=headers).json()
+            total_meta = res_meta.get('tracks', {}).get('total', 0)
+            
+            if total_meta > 0:
+                break
+            time.sleep(30) # Se vier 0, espera 30 segundos para o servidor "respirar"
 
-        # 3. Varredura de Disponibilidade (Lógica de Identificação Mínima)
-        # IMPORTANTE: Removido market e adicionado campos específicos
-        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&fields=next,items(track(id,name,is_playable,restrictions))"
+        if total_meta == 0:
+            requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data="⚠️ AVISO: Spotify bloqueou o acesso temporariamente (Total 0). Tentando novamente na próxima rodada.".encode('utf-8'))
+            return
+
+        # 3. Varredura de Disponíveis (Sem filtros que causam erro)
+        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&fields=next,items(track(id,name))"
         qtd_disponiveis = 0
         
         while url_tracks:
             res_tracks = requests.get(url_tracks, headers=headers).json()
             items = res_tracks.get('items', [])
-            
             for item in items:
-                track = item.get('track')
-                if not track: continue
-                
-                # Se o Spotify retornou o nome ou se a faixa NÃO possui restrições explícitas
-                # Muitas vezes o 'id' aparece mas o 'name' some no bloqueio total
-                if track.get('name') or track.get('id'):
-                    # Se não houver a tag de restrição 'market', consideramos visível
-                    restrictions = track.get('restrictions', {})
-                    if 'reason' not in restrictions:
-                        qtd_disponiveis += 1
+                t = item.get('track')
+                if t and t.get('id'): # Se tem ID, a música "existe" na lista
+                    qtd_disponiveis += 1
             
             url_tracks = res_tracks.get('next')
-            if url_tracks: time.sleep(0.5)
+            if url_tracks: time.sleep(1)
 
-        # 4. Relatório Final
-        qtd_indisponiveis = total_meta - qtd_disponiveis
-        
-        # Se mesmo assim der 0, o script enviará um aviso de "Modo de Segurança"
-        msg = f"📊 STATUS DA PLAYLIST\n\n"
-        msg += f"Total: {total_meta}\n"
-        msg += f"🟢 Disponíveis: {qtd_disponiveis}\n"
-        msg += f"🔴 Indisponíveis: {qtd_indisponiveis}\n"
-
+        # 4. Relatório
+        msg = f"📊 PLACAR REAL\nTotal: {total_meta}\n🟢 Disponíveis: {qtd_disponiveis}\n🔴 Indisponíveis: {total_meta - qtd_disponiveis}"
         requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", data=msg.encode('utf-8'))
 
     except Exception as e:
