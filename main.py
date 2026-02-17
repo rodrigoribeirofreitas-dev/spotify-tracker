@@ -19,14 +19,14 @@ def check_for_updates():
         token = token_res.get('access_token')
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 2. Total da Playlist (O que já está funcionando)
+        # 2. Total da Playlist (O que já funciona)
         url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=tracks(total)&cache={random.random()}"
         res_meta = requests.get(url_meta, headers=headers).json()
         total_meta = res_meta.get('tracks', {}).get('total', 0)
 
-        # 3. Varredura com Lógica de Distinção
-        # Usamos o parâmetro 'market' para a API marcar o que é tocável no Brasil
-        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100&market={MY_MARKET}"
+        # 3. Varredura com Lógica de "Impressão Digital"
+        # Removemos o market da URL para o Spotify não filtrar antes da nossa análise
+        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?limit=100"
         qtd_disponiveis = 0
         
         while url_tracks:
@@ -35,12 +35,20 @@ def check_for_updates():
             
             for item in items:
                 track = item.get('track')
-                if track:
-                    # DISTINÇÃO: O Spotify retorna 'is_playable' como True 
-                    # ou fornece restrições vazias quando a música está liberada.
-                    # Se 'is_playable' for False ou o ID for nulo, ela está bloqueada.
-                    if track.get('id') and track.get('is_playable') != False:
-                        qtd_disponiveis += 1
+                if track and track.get('id'):
+                    # O SEGREDO: Músicas disponíveis no seu mercado (BR) 
+                    # retornam o campo 'preview_url' ou 'is_playable' preenchido 
+                    # quando consultadas via API, mesmo em modo desenvolvedor.
+                    
+                    # Testamos se a música tem metadados de 'album' ativos
+                    has_album = track.get('album', {}).get('id') is not None
+                    
+                    if has_album and not track.get('is_local'):
+                        # Se ela tem álbum e ID, verificamos a restrição
+                        is_restricted = track.get('restrictions', {}).get('reason') == 'market'
+                        
+                        if not is_restricted:
+                            qtd_disponiveis += 1
             
             url_tracks = res_tracks.get('next')
             if url_tracks: time.sleep(1)
