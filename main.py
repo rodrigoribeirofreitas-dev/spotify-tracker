@@ -19,48 +19,51 @@ def execucao_definitiva():
     token = obter_token()
     headers = {"Authorization": f"Bearer {token}"}
     
-    # 1. A SUA chamada original (intocada e funcionando)
-    url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?market=BR"
-    res = requests.get(url, headers=headers).json()
+    # 1. A SUA chamada original (A ÚNICA que traz o total sem bugar)
+    url_base = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?market=BR"
+    res = requests.get(url_base, headers=headers)
     
-    nome = res.get('name', 'Erro: Playlist não localizada')
-    tracks_obj = res.get('tracks', {})
-    total = tracks_obj.get('total', 0)
+    # TRAVA DE SEGURANÇA: Se o Spotify barrar, te avisa o motivo real em vez de mostrar "0"
+    if res.status_code != 200:
+        requests.post("https://ntfy.sh/spotify_tracker", data=f"🚨 ERRO DA API: {res.text}".encode('utf-8'))
+        return
+        
+    dados = res.json()
+    nome = dados.get('name', 'Erro: Playlist não localizada')
+    total = dados.get('tracks', {}).get('total', 0)
     
     bloqueadas = []
     
-    # Pega os primeiros 100 itens da chamada inicial
-    items = tracks_obj.get('items', [])
-    
-    # O Spotify entrega a URL pronta da "próxima página"
-    url_proxima = tracks_obj.get('next') 
-    
-    # 2. Loop seguro: processa a página atual e busca a próxima se existir
-    while True:
-        # Analisa as músicas da página que estamos lendo
-        for item in items:
-            t = item.get('track')
-            if t and t.get('is_playable') is False:
-                bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
-        
-        # Se a url_proxima for nula, significa que chegamos na última música
-        if not url_proxima:
-            break
-            
-        # Se tiver mais página, faz a requisição usando o link seguro do Spotify
-        res_prox = requests.get(url_proxima, headers=headers).json()
-        items = res_prox.get('items', [])
-        url_proxima = res_prox.get('next') # Atualiza o link para a próxima volta
+    # Processa as primeiras 100 músicas da sua chamada que funciona
+    tracks_items = dados.get('tracks', {}).get('items', [])
+    for item in tracks_items:
+        t = item.get('track')
+        if t and t.get('is_playable') is False:
+            bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
 
-    # 3. O SEU relatório para o ntfy (intocado)
+    # 2. Busca o resto das faixas usando APENAS o endereço que funciona
+    offset = 100
+    while offset < total:
+        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?market=BR&offset={offset}&limit=100"
+        res_tracks = requests.get(url_tracks, headers=headers)
+        
+        if res_tracks.status_code == 200:
+            items_extra = res_tracks.json().get('items', [])
+            for item in items_extra:
+                t = item.get('track')
+                if t and t.get('is_playable') is False:
+                    bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
+        
+        offset += 100
+
+    # 3. O seu relatório para o ntfy
     status = "⚠️ MÚSICAS BLOQUEADAS" if bloqueadas else "✅ TUDO OK"
     msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
     
     if bloqueadas:
-        # Aumentei para mostrar as 15 primeiras, já que a lista é grande
         msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:15])
     elif total > 0:
-        msg += "\n\nSua coleção de Metal está integral no catálogo BR!"
+        msg += "\n\nSua coleção está integral no catálogo BR!"
 
     requests.post("https://ntfy.sh/spotify_tracker", data=msg.encode('utf-8'))
 
