@@ -5,13 +5,11 @@ import base64
 CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
-
-# O seu crachá de acesso vitalício
-REFRESH_TOKEN = 'AQC-8YJoC-PCJmVyVbRZKL2AvB-3OI8jfQPPrQTeiUSH_iDL06VMh2UaQyeHx5VGvyOwMoYijt6Ck-YsIZFvp-_eINm2L2veWxMSV-_wjRdzFHRbJrnIoBeC0Gk3xDS79KHqeOKypG5bkOqiLjK99UABlDK51BhagLmMYjpELvoYUsIeOQ6WEbn9CqBubhVBCg'
+REFRESH_TOKEN = 'AQC3aYLD47sUBKvJKmpU_RSnKVROxkcmvUyqmkxKyueiU7h96G1hfXNneEHEYcSGH5YE7G8a79P-eczN14-YGsHsMu2UiK-kTtOrvBbb3VFIRg3rLICSG9-2H-wiK_pMVWA'
 
 def obter_token_usuario():
-    # Troca o seu Refresh Token por uma chave de acesso nova (Access Token)
     auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
+    # URL oficial e explícita
     url = "https://accounts.spotify.com/api/token"
     headers = {"Authorization": f"Basic {auth_str}"}
     data = {
@@ -19,48 +17,69 @@ def obter_token_usuario():
         "refresh_token": REFRESH_TOKEN
     }
     res = requests.post(url, headers=headers, data=data)
-    return res.json().get('access_token')
+    
+    if res.status_code != 200:
+        return None, res.text
+    return res.json().get('access_token'), None
 
 def execucao_definitiva():
-    token = obter_token_usuario()
+    token, erro_token = obter_token_usuario()
+    
+    # 1. TRAVA ANTI-MENTIRA DO TOKEN
+    if not token:
+        requests.post("https://ntfy.sh/spotify_tracker", data=f"🚨 ERRO AO GERAR TOKEN:\n{erro_token}".encode('utf-8'))
+        return
+        
     headers = {"Authorization": f"Bearer {token}"}
     
-    # Bate na porta como o dono da playlist usando URLs oficiais
+    # URL oficial e explícita da Playlist
     url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?market=BR"
-    res = requests.get(url, headers=headers).json()
+    res = requests.get(url, headers=headers)
     
-    nome = res.get('name', 'Unavailable albums')
-    tracks_obj = res.get('tracks', {})
+    # 2. TRAVA ANTI-MENTIRA DA API
+    if res.status_code != 200:
+        requests.post("https://ntfy.sh/spotify_tracker", data=f"🚨 ERRO DA API SPOTIFY:\nStatus: {res.status_code}\n{res.text}".encode('utf-8'))
+        return
+        
+    dados = res.json()
+    
+    # Agora pega os dados reais. Se não achar, o erro foi pego na trava acima.
+    nome = dados.get('name')
+    tracks_obj = dados.get('tracks', {})
     total = tracks_obj.get('total', 0)
     
     bloqueadas = []
     
-    # Processa a primeira página
+    # Lê a primeira página
     items = tracks_obj.get('items', [])
     for item in items:
         t = item.get('track')
         if t and t.get('is_playable') is False:
             bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
 
-    # Loop seguro para ler até a última música (Paginação oficial do Spotify)
+    # Lê as próximas páginas usando a URL oficial do Spotify
     next_url = tracks_obj.get('next')
     while next_url:
-        res_prox = requests.get(next_url, headers=headers).json()
-        for item in res_prox.get('items', []):
+        res_prox = requests.get(next_url, headers=headers)
+        
+        # 3. TRAVA ANTI-MENTIRA DA PAGINAÇÃO
+        if res_prox.status_code != 200:
+            requests.post("https://ntfy.sh/spotify_tracker", data=f"🚨 ERRO NA LEITURA DA LISTA:\n{res_prox.text}".encode('utf-8'))
+            return
+            
+        dados_prox = res_prox.json()
+        for item in dados_prox.get('items', []):
             t = item.get('track')
             if t and t.get('is_playable') is False:
                 bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
-        next_url = res_prox.get('next')
+        next_url = dados_prox.get('next')
 
-    # Relatório final para o seu celular
+    # Relatório final
     status = "⚠️ MÚSICAS BLOQUEADAS" if bloqueadas else "✅ TUDO OK"
     msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
     
     if bloqueadas:
-        # Mostra as 15 primeiras indisponíveis
         msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:15])
-    elif total > 0:
-        msg += "\n\nSua coleção de Metal está integral no catálogo BR!"
 
     requests.post("https://ntfy.sh/spotify_tracker", data=msg.encode('utf-8'))
 
