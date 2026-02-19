@@ -16,22 +16,21 @@ def varredura_total():
     token = obter_token()
     headers = {"Authorization": f"Bearer {token}"}
     
-    # 1. Primeiro, pega o nome e confirma o total oficial
-    url_pl = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?fields=name,tracks.total"
-    res_pl = requests.get(url_pl, headers=headers).json()
-    nome_pl = res_pl.get('name', 'Playlist não encontrada')
-    total_esperado = res_pl.get('tracks', {}).get('total', 0)
+    # 1. Busca o TOTAL real primeiro de forma isolada
+    url_meta = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?fields=total"
+    res_meta = requests.get(url_meta, headers=headers).json()
+    total_esperado = res_meta.get('total', 0)
 
     indisponiveis = []
-    total_processado = 0
+    total_lido = 0
     offset = 0
     limit = 100
 
-    # 2. Loop para ler TODAS as faixas (100 por vez)
-    while offset < total_esperado:
-        url_tracks = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?offset={offset}&limit={limit}&market=BR"
-        res_tracks = requests.get(url_tracks, headers=headers).json()
-        items = res_tracks.get('items', [])
+    # 2. Varre a playlist inteira
+    while total_lido < total_esperado:
+        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?offset={offset}&limit={limit}&market=BR"
+        res = requests.get(url, headers=headers).json()
+        items = res.get('items', [])
         
         if not items:
             break
@@ -39,20 +38,18 @@ def varredura_total():
         for item in items:
             track = item.get('track')
             if not track: continue
-            
-            total_processado += 1
-            # Se is_playable for False, ela sumiu do catálogo brasileiro
+            total_lido += 1
             if track.get('is_playable') is False:
                 indisponiveis.append(f"🚫 {track['artists'][0]['name']} - {track['name']}")
         
         offset += limit
 
-    # Relatório Final
+    # 3. Relatório para o ntfy
     status = "⚠️ MÚSICAS BLOQUEADAS" if indisponiveis else "✅ TUDO OK"
-    msg = f"🤘 {status}\n\nPlaylist: {nome_pl}\nTotal Lido: {total_processado}/{total_esperado}\nIndisponíveis no Brasil: {len(indisponiveis)}"
+    msg = f"🤘 {status}\n\nPlaylist: Unavailable albums\nTotal Lido: {total_lido}/{total_esperado}\nIndisponíveis no Brasil: {len(indisponiveis)}"
     
     if indisponiveis:
-        msg += "\n\nExemplos sumidos:\n" + "\n".join(indisponiveis[:15])
+        msg += "\n\nExemplos fora do catálogo:\n" + "\n".join(indisponiveis[:15])
 
     requests.post("https://ntfy.sh/spotify_tracker", data=msg.encode('utf-8'))
 
