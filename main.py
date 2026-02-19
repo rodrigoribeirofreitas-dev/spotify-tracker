@@ -6,7 +6,7 @@ CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
 
 # O código fresco que você acabou de me enviar
-CODIGO_NOVO = 'AQCDkfCGDEiCV4B_OHa8yP_WZoAmS1Z79A8PT5AX0NWfC5d3qefThq1SvOMsGpps60zjDPxpxoujHJQ3UbNoBcMWUeejpjFsYfN6aIQaUv_RiXW4b6vcVixT1c9-9Xo_Gj8bWeOmsLqLQelv7t8gn_c3mLGVYOllD-Fv7LpdrFAPFkqA86llJfpfapOBZDGDVS8jDfMxTqClBbKdHQZsBBwwfGXkzojxDrDrs1vicoOVX8ZuNB-QRofuPcpor11ypg'
+CODIGO_NOVO = 'AQAIHRL-ubo2GTWU3s74PSpkXSIOIjhqipfb11eW5Kj5drcd_wFNuHyizy4OvwevLjlnhbTTTav5HBOPeCR9W_hMv2GBgWJhN5EZ153_CaajekkH_ufn4GxY_HUmM4tfwOA'
 
 def obter_chave_eterna():
     try:
