@@ -1,42 +1,41 @@
 import requests
 import base64
 
-# Suas credenciais fixas
+# Suas credenciais de desenvolvedor
 CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
 
 # O código que você acabou de me enviar
-CODIGO_NOVO = 'AQBMVda0DYEAg-05bF_nWHFbKRuAkqSx4l8_i0m9wI-o0SlQxWzw4q7fPlAaovbyVw8_5jC__EYi317J-lwt0Df-SAcePRrL99NXdctqrYclE-JS-Tx1xgNxuXwzFO8n4YI'
+CODIGO_NOVO = 'AQBM8LxLBKjH9V0aa9T5becy1MdXwt6L4MHiAWSKrvmfpYsuPVwOXUtZ5J8_MATzpXWxBkdWA_mDQGjRWLEVCJXvZc5ULgtLa4BqLE7Fcg6xqhmrHz6j7J5Nb26LQ9ADHUBFJWyRZ6Pvof0EQyu1qvYZKEwHQJIyfhAW3-ETuca2QMwlNeID8BP-BPUg_C-ROXf0oLzskYmFsHohD3OUSlZ8LN-qrSdiQOd8NjDU'
 
 def obter_chave_eterna():
     try:
-        # Codificação das credenciais para o padrão Spotify
+        # Preparação da autenticação padrão Spotify
         auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
         headers = {
             "Authorization": f"Basic {auth_str}",
             "Content-Type": "application/x-www-form-urlencoded"
         }
         
-        # Dados da requisição de troca
+        # Dados para a troca do código pela chave eterna
         data = {
             "grant_type": "authorization_code",
             "code": CODIGO_NOVO,
             "redirect_uri": "https://www.google.com"
         }
         
-        # Chamada para o endpoint de tokens do Spotify
+        # Chamada ao endpoint de tokens
         res = requests.post("https://accounts.spotify.com/api/token", headers=headers, data=data)
         dados = res.json()
         
-        # Extração do Refresh Token
         refresh_token = dados.get('refresh_token')
         
         if refresh_token:
-            msg = f"✅ AGORA SIM! SUA CHAVE ETERNA:\n\n{refresh_token}"
+            msg = f"✅ VITÓRIA! SUA CHAVE ETERNA:\n\n{refresh_token}"
         else:
-            msg = f"❌ O SPOTIFY NEGOU: {dados.get('error_description', dados)}"
+            msg = f"❌ ERRO NA TROCA: {dados.get('error_description', dados)}"
             
-        # Envio direto para o seu ntfy
+        # Envia o resultado para o seu ntfy
         requests.post("https://ntfy.sh/spotify_tracker", data=msg.encode('utf-8'))
         print(msg)
 
