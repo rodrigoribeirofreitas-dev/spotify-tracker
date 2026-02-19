@@ -5,8 +5,8 @@ import base64
 CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
 
-# O código que você acabou de me enviar
-CODIGO_NOVO = 'AQAdqXUx4Ttp28TzBlOexkM7EoVix8kACOCEETNiqHHm6FTy17tXr3-sojiXl03iXNs-FTRlzGtrEe-aerTsKKpKoHKyFJmNrQw084d_3Yu48Wk3AwJHfshwLQYC0l4Pmh4'
+# O código que você acabou de me enviar (Fresco)
+CODIGO_NOVO = 'AQCBw6ePqONl-QKFhJcSQ8Fjkok1jInizEN8ipVq3ZwKt6rlM2DkBEU-0PmF1UJA3IDIYAuKReVN1aNtQSB7dBu-aNhd2QHyY_oK4WR58kU71JFUjdzuCuBXnvzhvVS3HCk38Xlm7XJyAJbHtigHh-s0lu-44sGQEw6reMP9rsnwUJOkbgz32jkmy3YVQOJEZsPLU2H_Ba2A9hk76QUgYXvKhg-cZLhodVJuYjRFXMdqyB2Q9JH1EpPXGauEzrLM_A'
 
 def obter_chave_eterna():
     try:
