@@ -1,11 +1,9 @@
 import requests
 import base64
 
-# Suas credenciais que já funcionam
+# Suas credenciais validadas
 CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
-
-# O ID REAL de 21 caracteres que você enviou agora
 PLAYLIST_ID = '4n3nX3eYsqaRVZSADZbhBm'
 
 def obter_token():
@@ -15,36 +13,47 @@ def obter_token():
                         data={"grant_type": "client_credentials"})
     return res.json().get('access_token')
 
-def execucao_definitiva():
+def varredura_completa():
     token = obter_token()
     headers = {"Authorization": f"Bearer {token}"}
     
-    # Buscando a playlist correta
-    url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}?market=BR"
-    res = requests.get(url, headers=headers).json()
+    indisponiveis = []
+    total_lido = 0
+    offset = 0
+    limit = 100
     
-    nome = res.get('name', 'Erro: Playlist não localizada')
-    total = res.get('tracks', {}).get('total', 0)
-    
-    # Analisando faixas indisponíveis
-    tracks_items = res.get('tracks', {}).get('items', [])
-    bloqueadas = []
-    
-    for item in tracks_items:
-        t = item.get('track')
-        if t and t.get('is_playable') is False:
-            bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
+    # Loop para ler todas as 1.697 músicas (em blocos de 100)
+    while True:
+        url = f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks?offset={offset}&limit={limit}&market=BR"
+        res = requests.get(url, headers=headers).json()
+        
+        items = res.get('items', [])
+        if not items:
+            break
+            
+        for item in items:
+            track = item.get('track')
+            if not track: continue
+            
+            total_lido += 1
+            # Verifica se a música está bloqueada no Brasil
+            if track.get('is_playable') is False:
+                indisponiveis.append(f"🚫 {track['artists'][0]['name']} - {track['name']}")
+        
+        offset += limit
+        if len(items) < limit:
+            break
 
-    # Relatório para o ntfy
-    status = "⚠️ MÚSICAS BLOQUEADAS" if bloqueadas else "✅ TUDO OK"
-    msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
+    # Montagem do relatório final para o ntfy
+    status = "⚠️ MÚSICAS BLOQUEADAS" if indisponiveis else "✅ TUDO OK"
+    msg = f"🤘 {status}\n\n"
+    msg += f"Total lido na Playlist: {total_lido}\n"
+    msg += f"Indisponíveis no Brasil: {len(indisponiveis)}\n\n"
     
-    if bloqueadas:
-        msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:10])
-    elif total > 0:
-        msg += "\n\nSua coleção de Metal está integral no catálogo BR!"
+    if indisponiveis:
+        msg += "Últimas detectadas:\n" + "\n".join(indisponiveis[-15:]) # Mostra as 15 últimas encontradas
 
     requests.post("https://ntfy.sh/spotify_tracker", data=msg.encode('utf-8'))
 
 if __name__ == "__main__":
-    execucao_definitiva()
+    varredura_completa()
