@@ -40,7 +40,7 @@ def execucao_definitiva():
     msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
     
     if bloqueadas:
-        msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:1697])
+        msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:100])
     elif total > 0:
         msg += "\n\nSua coleção de Metal está integral no catálogo BR!"
 
