@@ -1,18 +1,42 @@
 import requests
 import base64
 
-client_id = 'bf24024ba81d409c9af3ce7ca8f95c3f'
-client_secret = '0ced5b2211c5471ca53c3fe938aa3ba3'
-code = 'AQDL0EE7beZ59P3ni0TTt4DIRXhzjmGdCa2yyGvcUtruRp0SnmysxSzsXCRLMBRxwDVDqOUaA5hMabJiVBzRGibYmGFIE2Ke32S428C9cDGvJEAYZT3aoyrcTRQ_hBi4rZmFMro3-7ntADitbiCnYAy4oXyyLDt1guCiFYVuEb-xsAjryEBgDR9c9sUVFmrrMPZDGt9jfMJRlYwzQKqo-JhuJ3xz3D4u7VNUby3Bd4z75QSBwT9PACeWJIYOCFy-XQ'
-redirect_uri = 'https://www.google.com'
+# Suas credenciais fixas
+CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
+CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
 
-auth_str = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
-headers = {"Authorization": f"Basic {auth_str}"}
-data = {
-    "grant_type": "authorization_code",
-    "code": code,
-    "redirect_uri": redirect_uri
-}
+# O código que você acabou de me enviar
+CODIGO_DA_URL = 'AQBWsd-5pn3D0fW8ajwk4kOBvujlf9E4P-bwEUd1cA1lr7CfOUqS04EjdpOlQL1WiWzcg8abIvZKi9u9S14gEq3h0DgSrd3KxDk96myJfLRqzGjCUBDIK4R4enx9cDyGgGtm7i2jYUfl5dxDPGc4xY2c0ayinbHIACZIfCmfAzvr5DnDwSHe1Eo7Wm-W5FDD0mKXMPeA3vD_l1AezntWUzuA6lWmwL-4tx1Y1nwb'
 
-res = requests.post("https://accounts.spotify.com/api/token", headers=headers, data=data)
-print(res.json()) # O 'refresh_token' vai aparecer aqui!
+def obter_chave_eterna():
+    try:
+        auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
+        headers = {
+            "Authorization": f"Basic {auth_str}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        data = {
+            "grant_type": "authorization_code",
+            "code": CODIGO_DA_URL,
+            "redirect_uri": "https://www.google.com"
+        }
+        
+        res = requests.post("https://accounts.spotify.com/api/token", headers=headers, data=data)
+        dados = res.json()
+        
+        refresh_token = dados.get('refresh_token')
+        
+        if refresh_token:
+            msg = f"✅ CONSEGUIMOS! Sua chave eterna (Refresh Token) é:\n\n{refresh_token}"
+        else:
+            msg = f"❌ ERRO: {dados.get('error_description', dados)}"
+            
+        # Envia para o seu ntfy
+        requests.post("https://ntfy.sh/spotify_tracker", data=msg.encode('utf-8'))
+        print(msg)
+
+    except Exception as e:
+        requests.post("https://ntfy.sh/spotify_tracker", data=f"❌ ERRO TÉCNICO: {str(e)}".encode('utf-8'))
+
+if __name__ == "__main__":
+    obter_chave_eterna()
