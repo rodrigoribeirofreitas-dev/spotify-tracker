@@ -1,31 +1,24 @@
 import requests
 import base64
 
-# Suas credenciais
+# Suas credenciais fixas
 CID = 'bf24024ba81d409c9af3ce7ca8f95c3f'
 CSEC = '0ced5b2211c5471ca53c3fe938aa3ba3'
 
-# COLE O NOVO CÓDIGO DA URL AQUI
-CODIGO_NOVO = 'AQBWsd-5pn3D0fW8ajwk4kOBvujlf9E4P-bwEUd1cA1lr7CfOUqS04EjdpOlQL1WiWzcg8abIvZKi9u9S14gEq3h0DgSrd3KxDk96myJfLRqzGjCUBDIK4R4enx9cDyGgGtm7i2jYUfl5dxDPGc4xY2c0ayinbHIACZIfCmfAzvr5DnDwSHe1Eo7Wm-W5FDD0mKXMPeA3vD_l1AezntWUzuA6lWmwL-4tx1Y1nwb'
+# COLE O NOVO CÓDIGO AQUI O MAIS RÁPIDO POSSÍVEL
+CODIGO_NOVO = 'AQCtY6Ed0VoFqddYNNXbguL3bNWSQhzyFUqi27kptFw-DBsVQsyaKK65Q4u2YlWRjY_IOtqmvZIouyoCu8aObzhMj5uTbKLwPRfP0fc-Hr5psrOdJLFOJTbip11lcDj-XFwejLG88uZuDLFcj8_W1G7o5DfWLO_WAFndX1uvh9o9dYPKS8iaWge-KRBC2M2G5oUJkOy0lEZVzBV4wMXGrDhVIvpeF001J97uLG9r9jZUanhSNfzLzssp4ew5GuKIZA' 
 
 def obter_chave_mestra():
     try:
         auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
-        headers = {
-            "Authorization": f"Basic {auth_str}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        data = {
-            "grant_type": "authorization_code",
-            "code": CODIGO_NOVO,
-            "redirect_uri": "https://www.google.com"
-        }
+        headers = {"Authorization": f"Basic {auth_str}", "Content-Type": "application/x-www-form-urlencoded"}
+        data = {"grant_type": "authorization_code", "code": CODIGO_NOVO, "redirect_uri": "https://www.google.com"}
         
         res = requests.post("https://accounts.spotify.com/api/token", headers=headers, data=data)
         token = res.json().get('refresh_token')
         
         if token:
-            msg = f"✅ AGORA SIM! SUA CHAVE MESTRA:\n\n{token}"
+            msg = f"✅ SUCESSO! CHAVE MESTRA:\n\n{token}"
         else:
             msg = f"❌ O SPOTIFY DISSE: {res.json().get('error_description', res.json())}"
             
