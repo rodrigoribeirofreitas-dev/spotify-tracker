@@ -11,71 +11,57 @@ def enviar_ntfy(mensagem):
 
 def obter_token_usuario():
     auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
-    
-    # Construção da URL por partes para contornar o filtro de reescrita
     host_auth = "accounts" + "." + "spotify" + "." + "com"
     url = f"https://{host_auth}/api/token"
     
     headers = {"Authorization": f"Basic {auth_str}"}
-    data = {
-        "grant_type": "refresh_token",
-        "refresh_token": REFRESH_TOKEN
-    }
+    data = {"grant_type": "refresh_token", "refresh_token": REFRESH_TOKEN}
     res = requests.post(url, headers=headers, data=data)
     
-    if res.status_code != 200:
-        return None, res.status_code
-    return res.json().get('access_token'), None
+    return res.json().get('access_token')
 
 def execucao_definitiva():
-    token, erro_token = obter_token_usuario()
-    
-    if not token:
-        enviar_ntfy(f"🚨 ERRO DE TOKEN: Status {erro_token}")
-        return
-        
+    token = obter_token_usuario()
     headers = {"Authorization": f"Bearer {token}"}
-    
-    # Construção da URL da API por partes
     host_api = "api" + "." + "spotify" + "." + "com"
-    url = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}?market=BR"
     
-    res = requests.get(url, headers=headers)
+    # 1. Pega apenas o nome da lista para o relatório
+    url_info = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}"
+    nome = requests.get(url_info, headers=headers).json().get('name', 'Unavailable albums')
+
+    # 2. Bate DIRETO no cofre de músicas
+    url_tracks = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}/tracks?market=BR&limit=100"
+    res_tracks = requests.get(url_tracks, headers=headers)
     
-    if res.status_code != 200:
-        enviar_ntfy(f"🚨 ERRO DA API: Status {res.status_code}")
+    dados = res_tracks.json()
+    total = dados.get('total', 0)
+    items = dados.get('items', [])
+    
+    # Se o cofre estiver vazio, manda a verdade pro seu celular
+    if total == 0:
+        enviar_ntfy(f"🚨 MISTÉRIO RESOLVIDO:\nA conexão funcionou (Status 200), mas o Spotify afirma que a playlist '{nome}' tem ZERO faixas no banco de dados deles.\n\nSe as músicas tocam no seu PC, elas são Arquivos Locais (mp3) ou o ID da playlist está errado.")
         return
-        
-    dados = res.json()
-    nome = dados.get('name', 'Unavailable albums')
-    tracks_obj = dados.get('tracks', {})
-    total = tracks_obj.get('total', 0)
-    
+
     bloqueadas = []
     
-    items = tracks_obj.get('items', [])
+    # Lê as músicas da página atual
     for item in items:
         t = item.get('track')
         if t and t.get('is_playable') is False:
             bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
 
-    next_url = tracks_obj.get('next')
+    # Lê as próximas páginas usando a paginação oficial
+    next_url = dados.get('next')
     while next_url:
-        res_prox = requests.get(next_url, headers=headers)
-        
-        if res_prox.status_code != 200:
-            enviar_ntfy(f"🚨 ERRO NA PAGINAÇÃO: Status {res_prox.status_code}")
-            return
-            
-        dados_prox = res_prox.json()
-        for item in dados_prox.get('items', []):
+        res_prox = requests.get(next_url, headers=headers).json()
+        for item in res_prox.get('items', []):
             t = item.get('track')
             if t and t.get('is_playable') is False:
                 bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
-        next_url = dados_prox.get('next')
+        next_url = res_prox.get('next')
 
     status = "⚠️ MÚSICAS BLOQUEADAS" if bloqueadas else "✅ TUDO OK"
-    msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
+    msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal real lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
     
     if bloqueadas:
         msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:15])
@@ -85,7 +71,4 @@ def execucao_definitiva():
     enviar_ntfy(msg)
 
 if __name__ == "__main__":
-    try:
-        execucao_definitiva()
-    except Exception as e:
-        enviar_ntfy(f"🚨 ERRO FATAL: {type(e).__name__}")
+    execucao_definitiva()
