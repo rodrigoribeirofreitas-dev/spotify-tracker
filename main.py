@@ -11,7 +11,6 @@ REFRESH_TOKEN = 'AQC6kS3QmyiHl4HfKZgiumNDgnzyEwWIETf_4e8iUJOQIPlFn25UJuI0rN5lsCz
 
 def obter_token_usuario():
     auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
-    # URL oficial e explícita do Spotify para tokens
     url = "https://accounts.spotify.com/api/token"
     headers = {"Authorization": f"Basic {auth_str}"}
     data = {
@@ -33,6 +32,3 @@ def execucao_definitiva():
         return
         
     headers = {"Authorization": f"Bearer {token}"}
-    
-    # 2. URL oficial e explícita da API do Spotify
-    url = f"
