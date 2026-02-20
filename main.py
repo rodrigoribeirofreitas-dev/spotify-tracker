@@ -11,64 +11,33 @@ def enviar_ntfy(mensagem):
 
 def obter_token_usuario():
     auth_str = base64.b64encode(f"{CID}:{CSEC}".encode()).decode()
-    host_auth = "accounts" + "." + "spotify" + "." + "com"
-    url = f"https://{host_auth}/api/token"
-    
-    headers = {"Authorization": f"Basic {auth_str}"}
-    data = {"grant_type": "refresh_token", "refresh_token": REFRESH_TOKEN}
-    res = requests.post(url, headers=headers, data=data)
-    
+    url = "https://" + "accounts.spotify.com" + "/api/token"
+    res = requests.post(url, headers={"Authorization": f"Basic {auth_str}"}, data={"grant_type": "refresh_token", "refresh_token": REFRESH_TOKEN})
     return res.json().get('access_token')
 
-def execucao_definitiva():
+def prova_real():
     token = obter_token_usuario()
     headers = {"Authorization": f"Bearer {token}"}
-    host_api = "api" + "." + "spotify" + "." + "com"
+    host_api = "api.spotify.com"
     
-    # 1. Pega apenas o nome da lista para o relatório
-    url_info = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}"
-    nome = requests.get(url_info, headers=headers).json().get('name', 'Unavailable albums')
+    # Teste 1: A verdade global (sem filtrar por país)
+    url_global = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}/tracks?fields=total"
+    res_global = requests.get(url_global, headers=headers).json()
+    total_global = res_global.get('total', 0)
+    
+    # Teste 2: A mentira local (filtrando pelo Brasil)
+    url_br = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}/tracks?market=BR&fields=total"
+    res_br = requests.get(url_br, headers=headers).json()
+    total_br = res_br.get('total', 0)
 
-    # 2. Bate DIRETO no cofre de músicas
-    url_tracks = f"https://{host_api}/v1/playlists/{PLAYLIST_ID}/tracks?market=BR&limit=100"
-    res_tracks = requests.get(url_tracks, headers=headers)
-    
-    dados = res_tracks.json()
-    total = dados.get('total', 0)
-    items = dados.get('items', [])
-    
-    # Se o cofre estiver vazio, manda a verdade pro seu celular
-    if total == 0:
-        enviar_ntfy(f"🚨 MISTÉRIO RESOLVIDO:\nA conexão funcionou (Status 200), mas o Spotify afirma que a playlist '{nome}' tem ZERO faixas no banco de dados deles.\n\nSe as músicas tocam no seu PC, elas são Arquivos Locais (mp3) ou o ID da playlist está errado.")
-        return
-
-    bloqueadas = []
-    
-    # Lê as músicas da página atual
-    for item in items:
-        t = item.get('track')
-        if t and t.get('is_playable') is False:
-            bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
-
-    # Lê as próximas páginas usando a paginação oficial
-    next_url = dados.get('next')
-    while next_url:
-        res_prox = requests.get(next_url, headers=headers).json()
-        for item in res_prox.get('items', []):
-            t = item.get('track')
-            if t and t.get('is_playable') is False:
-                bloqueadas.append(f"🚫 {t['artists'][0]['name']} - {t['name']}")
-        next_url = res_prox.get('next')
-
-    status = "⚠️ MÚSICAS BLOQUEADAS" if bloqueadas else "✅ TUDO OK"
-    msg = f"🤘 {status}\n\nPlaylist: {nome}\nTotal real lido: {total}\nIndisponíveis no Brasil: {len(bloqueadas)}"
-    
-    if bloqueadas:
-        msg += "\n\nPrimeiras da lista:\n" + "\n".join(bloqueadas[:15])
-    elif total > 0:
-        msg += "\n\nA coleção está integral no catálogo BR!"
+    if total_global > 0 and total_br == 0:
+        msg = f"🤯 VOCÊ ESTAVA CERTO E EU FUI BURRO!\n\nSem o filtro BR: {total_global} faixas no servidor.\nCom o filtro BR: {total_br} faixas.\n\nO Spotify não avisa que estão bloqueadas, ele literalmente DELETA as faixas da resposta se você perguntar sobre o mercado brasileiro!"
+    elif total_global > 0 and total_br > 0:
+        msg = f"📊 STATUS:\nTotal Global: {total_global}\nTotal BR: {total_br}"
+    else:
+        msg = f"💀 ERRO DESCONHECIDO: O servidor global devolveu {total_global} faixas. O buraco é mais embaixo."
 
     enviar_ntfy(msg)
 
 if __name__ == "__main__":
-    execucao_definitiva()
+    prova_real()
